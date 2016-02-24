@@ -2,14 +2,18 @@
 
 
 test_strategy(N, Strat1, Strat2) :-
-  test_strategy_helper(N, N, Strat1, Strat2, 0, 0, 0, 0, 250).
+  test_strategy_helper(N, N, Strat1, Strat2, 0, 0, 0, 0, 250, 0).
 
-test_strategy_helper(1, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest) :-
-  play(quiet, Strat1, Strat2, NumMoves, WinningPlayer),
-
-  %format("Should be a drawn when: ~w\n", [WinningPlayer]),  
+test_strategy_helper(1, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest, TimeInGame) :-
   
+  statistics(walltime, _),
+  play(quiet, Strat1, Strat2, NumMoves, WinningPlayer),
+  statistics(walltime, [_, Y]),
+  
+  GameTime is Y,
+
   FinTotalMoves is TotalMoves + NumMoves,
+  FinGameTime is TimeInGame + GameTime,
   (WinningPlayer == 'b' ->
     FinBlueWins is BlueWins + 1,
     FinRedWins is RedWins,
@@ -37,12 +41,16 @@ test_strategy_helper(1, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Hi
   ),
 
   AverageMoves is FinTotalMoves / InitN, 
-  format("Highest: ~w\nLowest: ~w\nAverageMoves: ~w\nBlueWins: ~w\nRedWins: ~w\nDraws: ~w\n", [FinHighest, FinLowest, AverageMoves, FinBlueWins, FinRedWins, Draws]).
+  AverageTime is FinGameTime / InitN,
+  format("Highest: ~w\nLowest: ~w\nAverageMoves: ~w\nBlueWins: ~w\nRedWins: ~w\nDraws: ~w\nAverageTimePerGame: ~w", [FinHighest, FinLowest, AverageMoves, FinBlueWins, FinRedWins, Draws, AverageTime]).
 
 
-test_strategy_helper(N, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest) :-
+test_strategy_helper(N, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest, TimeInGame) :-
+  statistics(walltime, _),
   play(quiet, Strat1, Strat2, NumMoves, WinningPlayer),
-
+  statistics(walltime, [_, Y]),
+  GameTime is Y,
+  NewTotalTime is TimeInGame + GameTime,
   NewTotalMoves is TotalMoves + NumMoves,
 
   (WinningPlayer == 'b' ->
@@ -69,37 +77,7 @@ test_strategy_helper(N, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Hi
   ),
   
   NewN is N - 1,
-  test_strategy_helper(NewN, InitN, Strat1, Strat2, NewTotalMoves, NewBlueWins, NewRedWins, NewHighest, NewLowest). 
+  test_strategy_helper(NewN, InitN, Strat1, Strat2, NewTotalMoves, NewBlueWins, NewRedWins, NewHighest, NewLowest, NewTotalTime). 
 
-  
-
-
-%test_strategy_helper(N, Strat1, Strat2, NumMoves, WinningPlayer) :-
-  
-
-  % Loop N times playing the game
-  %  play(quiet, Strat1, Strat2, NumMoves, WinningPlayer),
-
-
-  % Print the number of draws
-  
-  
-  % Print the number of wins for each player
-
-
-  % Print the maximum number of moves a game took
-  
-  % Print minimum number of moves a game took
-  
-  % Average moves in a game
-  
-  % Average time taken
-  %  format("Number of moves was ~w\n", [NumMoves]),
-
-
-
-  %GameMoveCounter = NumMoves,
-  %Average =  GameMoveCounter / N,
-  %format("Average move number was ~w\n", [Average]).
-
+ 
 
