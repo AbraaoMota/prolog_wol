@@ -2,70 +2,77 @@
 
 
 test_strategy(N, Strat1, Strat2) :-
-
-  test_strategy_helper(N, N, Strat1, Strat2, 0, 0, 0, 0, 0).
+  test_strategy_helper(N, N, Strat1, Strat2, 0, 0, 0, 0, 250).
 
 test_strategy_helper(1, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest) :-
   play(quiet, Strat1, Strat2, NumMoves, WinningPlayer),
+
+  %format("Should be a drawn when: ~w\n", [WinningPlayer]),  
   
   FinTotalMoves is TotalMoves + NumMoves,
-  format("ftm = ~w, winner is: ~w\n", [FinTotalMoves, WinningPlayer]),  
-
-  FinBlueWins is BlueWins, 
-  FinRedWins is RedWins, 
-  FinHighest is Highest, 
-  FinLowest is Lowest,
-  format("fbw = ~w\n", [FinBlueWins]),
-
-  ( WinningPlayer == 'b' ->
-    format("w = ~w\n", [WinningPlayer]),
-
-    format("fbw = ~w\n", [FinBlueWins]),
-    %FinBlueWins = FinBlueWins + 1,
+  (WinningPlayer == 'b' ->
     FinBlueWins is BlueWins + 1,
-    format("fbw = ~w\n", [FinBlueWins])
-
+    FinRedWins is RedWins,
+    Draws is InitN - FinBlueWins - RedWins
   ; (WinningPlayer == 'r' ->
-      FinRedWins is FinRedWins + 1
+      FinBlueWins is BlueWins,
+      FinRedWins is RedWins + 1,
+      Draws is InitN - BlueWins - FinRedWins
     ;
-      Y = 2
+      FinBlueWins is BlueWins,
+      FinRedWins is RedWins,
+      Draws is InitN - BlueWins - FinRedWins
     )  
   ),
-  format("HI", []),
+  
   ( NumMoves > Highest ->
-    FinHighest =  NumMoves
-  ; (NumMoves < Lowest ->
-    FinLowest = NumMoves 
+    FinHighest is NumMoves
   ;
-    X = NumMoves
-    )
+    FinHighest is Highest
   ),
-  %format("BRUH", []),
-  AverageMoves = InitN / FinTotalMoves, 
-  Draws = InitN - BlueWins - RedWins,
-  format("Highest: ~w\n, Lowest: ~w\n, AverageMoves: ~w\n, BlueWins: ~w\n, RedWins: ~w\n, Draws: ~w\n", [FinHighest, FinLowest, AverageMoves, FinBlueWins, FinRedWins, FinDraws]).
+  ( NumMoves < Lowest ->
+    FinLowest is NumMoves
+  ;
+    FinLowest is Lowest
+  ),
 
-/*
-test_strategy_helper(N, InitN, Strat1, Strat2, 0, 0, 0, 0, 0) :-
+  AverageMoves is FinTotalMoves / InitN, 
+  format("Highest: ~w\nLowest: ~w\nAverageMoves: ~w\nBlueWins: ~w\nRedWins: ~w\nDraws: ~w\n", [FinHighest, FinLowest, AverageMoves, FinBlueWins, FinRedWins, Draws]).
+
+
+test_strategy_helper(N, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest) :-
   play(quiet, Strat1, Strat2, NumMoves, WinningPlayer),
-  TotalMoves is NumMoves, 
-  BlueWins is 0,
-  RedWins is 0, 
-  Draws is 0,
-  ( WinningPlayer = 'b' ->
-    BlueWins is 1
-  ; (WinningPlayer = 'r' ->
-      RedWins is 1
-      ;
-      Draws is 1
+
+  NewTotalMoves is TotalMoves + NumMoves,
+
+  (WinningPlayer == 'b' ->
+    NewBlueWins is BlueWins + 1,
+    NewRedWins is RedWins   
+  ; (WinningPlayer == 'r' ->
+      NewBlueWins is BlueWins,
+      NewRedWins is RedWins + 1
+    ;
+      NewBlueWins is BlueWins,
+      NewRedWins is RedWins
     )  
   ),
-  Lowest is NumMoves,
-  Highest is NumMoves,
-  NewN is N -1,
-  test_strategy_helper(NewN, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest).
+  
+  ( NumMoves > Highest ->
+    NewHighest is NumMoves
+  ;
+    NewHighest is Highest
+  ),
+  ( NumMoves < Lowest ->
+    NewLowest is NumMoves
+  ;
+    NewLowest is Lowest
+  ),
+  
+  NewN is N - 1,
+  test_strategy_helper(NewN, InitN, Strat1, Strat2, NewTotalMoves, NewBlueWins, NewRedWins, NewHighest, NewLowest). 
 
-*/
+  
+
 
 %test_strategy_helper(N, Strat1, Strat2, NumMoves, WinningPlayer) :-
   
