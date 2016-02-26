@@ -79,6 +79,13 @@ test_strategy_helper(N, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Hi
   NewN is N - 1,
   test_strategy_helper(NewN, InitN, Strat1, Strat2, NewTotalMoves, NewBlueWins, NewRedWins, NewHighest, NewLowest, NewTotalTime).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Utilities           %
+%%%%%%%%%%%%%%%%%%%%%%%
+
+% Performs a move and runs conways crank on it,
+% returns a new state when given a move, a state and a player
 move_and_crank(Move, [AliveBlues, AliveReds], [NewAliveBlues, NewAliveReds], Player) :-
     (Player == 'b' ->
       alter_board(Move, AliveBlues, IntAliveBlues),
@@ -88,6 +95,17 @@ move_and_crank(Move, [AliveBlues, AliveReds], [NewAliveBlues, NewAliveReds], Pla
       IntAliveBlues = AliveBlues
     ),
     next_generation([IntAliveBlues,IntAliveReds], [NewAliveBlues,NewAliveReds]).
+
+
+% Returns the other player given a player
+other_player('b') :- 'r'.
+other_player('r') :- 'b'.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% bloodlust strategy             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 bloodlust('b', [AliveBlues, AliveReds], [NewAliveBlues, AliveReds], Move) :-
   bloodlust_move(AliveBlues, AliveReds, Move, 'b'),
@@ -161,74 +179,308 @@ bloodlust_move_helper([X|Xs], Min, SuggestedMove, Move, State, Player) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% self_preservation strategy%%%%%%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% self_preservation strategy     %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-  self_preservation('b', [AliveBlues, AliveReds], [NewAliveBlues, AliveReds], Move) :-
-    self_preservation_move(AliveBlues, AliveReds, Move, 'b'),
-    alter_board(Move, AliveBlues, NewAliveBlues).
+self_preservation('b', [AliveBlues, AliveReds], [NewAliveBlues, AliveReds], Move) :-
+  self_preservation_move(AliveBlues, AliveReds, Move, 'b'),
+  alter_board(Move, AliveBlues, NewAliveBlues).
 
-  self_preservation('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
-    self_preservation_move(AliveReds, AliveBlues, Move, 'r'),
-    alter_board(Move, AliveReds, NewAliveReds).
+self_preservation('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
+  self_preservation_move(AliveReds, AliveBlues, Move, 'r'),
+  alter_board(Move, AliveReds, NewAliveReds).
 
-  self_preservation_move(Alive, OtherPlayerAlive, Move, Player) :-
+self_preservation_move(Alive, OtherPlayerAlive, Move, Player) :-
 
-    % Find all the possible moves given a player colour and a current board state
-    findall([A,B,MA,MB],(member([A,B], Alive),
-                         neighbour_position(A,B,[MA,MB]),
-                         \+member([MA,MB],Alive),
-                         \+member([MA,MB],OtherPlayerAlive)),
-            [P1|PossMoves]),
+  % Find all the possible moves given a player colour and a current board state
+  findall([A,B,MA,MB],(member([A,B], Alive),
+                       neighbour_position(A,B,[MA,MB]),
+                       \+member([MA,MB],Alive),
+                       \+member([MA,MB],OtherPlayerAlive)),
+          [P1|PossMoves]),
 
-    (Player ==  'b' ->
-     State = [Alive, OtherPlayerAlive]
+  (Player ==  'b' ->
+   State = [Alive, OtherPlayerAlive]
+  ;
+   State = [OtherPlayerAlive, Alive]
+  ),
+  % Given a list of possible moves, run move and crank for each, return the lowest
+  self_preservation_move_helper([P1|PossMoves], 0, P1, Move, State, Player).
+
+self_preservation_move_helper([X], Max, SuggestedMove, FinalMove, State, Player) :-
+  % Make this move and run conways crank to analyse the resulting state
+  move_and_crank(X, State, [NewBlues, NewReds], Player),
+  % Check the length of the opposing players alive list, if smaller than min, return as move
+  (Player == 'b' ->
+    length(NewBlues, BLen),
+    (BLen > Max->
+      FinalMove = X
     ;
-     State = [OtherPlayerAlive, Alive]
-    ),
-    % Given a list of possible moves, run move and crank for each, return the lowest
-    self_preservation_move_helper([P1|PossMoves], 0, P1, Move, State, Player).
-
-  self_preservation_move_helper([X], Max, SuggestedMove, FinalMove, State, Player) :-
-    % Make this move and run conways crank to analyse the resulting state
-    move_and_crank(X, State, [NewBlues, NewReds], Player),
-    % Check the length of the opposing players alive list, if smaller than min, return as move
-    (Player == 'b' ->
-      length(NewBlues, BLen),
-      (BLen > Max->
-        FinalMove = X
-      ;
-        FinalMove = SuggestedMove
-      )
+      FinalMove = SuggestedMove
+    )
+  ;
+    length(NewReds, RLen),
+    (RLen > Max ->
+      FinalMove = X
     ;
-      length(NewReds, RLen),
-      (RLen > Max ->
-        FinalMove = X
-      ;
-        FinalMove = SuggestedMove
-      )
-    ).
+      FinalMove = SuggestedMove
+    )
+  ).
 
-  self_preservation_move_helper([X|Xs], Max, SuggestedMove, Move, State, Player) :-
-    move_and_crank(X, State, [NewBlues, NewReds], Player),
-    % Check the length of the opposing players alive list, if smaller than min, return as move
-    (Player == 'b' ->
-      length(NewBlues, BLen),
-      (BLen > Max ->
-        NewMax = BLen,
-        NewSuggestedMove = X
-      ;
-        NewMax = Max,
-        NewSuggestedMove = SuggestedMove
-      )
+self_preservation_move_helper([X|Xs], Max, SuggestedMove, Move, State, Player) :-
+  move_and_crank(X, State, [NewBlues, NewReds], Player),
+  % Check the length of the opposing players alive list, if smaller than min, return as move
+  (Player == 'b' ->
+    length(NewBlues, BLen),
+    (BLen > Max ->
+      NewMax = BLen,
+      NewSuggestedMove = X
     ;
-      length(NewReds, RLen),
-      (RLen > Max ->
-        NewMax = RLen,
-        NewSuggestedMove = X
-      ;
-        NewMax = Max,
-        NewSuggestedMove = SuggestedMove
-      )
-    ),
-    self_preservation_move_helper(Xs, NewMax, NewSuggestedMove, Move, State, Player).
+      NewMax = Max,
+      NewSuggestedMove = SuggestedMove
+    )
+  ;
+    length(NewReds, RLen),
+    (RLen > Max ->
+      NewMax = RLen,
+      NewSuggestedMove = X
+    ;
+      NewMax = Max,
+      NewSuggestedMove = SuggestedMove
+    )
+  ),
+  self_preservation_move_helper(Xs, NewMax, NewSuggestedMove, Move, State, Player).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% land_grab strategy             %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+land_grab('b', [AliveBlues, AliveReds], [NewAliveBlues, AliveReds], Move) :-
+  land_grab_move(AliveBlues, AliveReds, Move, 'b'),
+  alter_board(Move, AliveBlues, NewAliveBlues).
+
+land_grab('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
+  land_grab_move(AliveReds, AliveBlues, Move, 'r'),
+  alter_board(Move, AliveReds, NewAliveReds).
+
+land_grab_move(Alive, OtherPlayerAlive, Move, Player) :-
+
+  % Find all the possible moves given a player colour and a current board state
+  findall([A,B,MA,MB],(member([A,B], Alive),
+                       neighbour_position(A,B,[MA,MB]),
+                       \+member([MA,MB],Alive),
+                       \+member([MA,MB],OtherPlayerAlive)),
+          [P1|PossMoves]),
+
+  (Player ==  'b' ->
+   State = [Alive, OtherPlayerAlive]
+  ;
+   State = [OtherPlayerAlive, Alive]
+  ),
+  % Given a list of possible moves, run move and crank for each, return the lowest
+  land_grab_move_helper([P1|PossMoves], 0, P1, Move, State, Player).
+
+land_grab_move_helper([X], Max, SuggestedMove, FinalMove, State, Player) :-
+  % Make this move and run conways crank to analyse the resulting state
+  move_and_crank(X, State, [NewBlues, NewReds], Player),
+  % Check the length of the opposing players alive list, if smaller than min, return as move
+  length(NewBlues, BLen),
+  length(NewReds, RLen),
+  (Player == 'b' ->
+    (BLen - RLen > Max->
+      FinalMove = X
+    ;
+      FinalMove = SuggestedMove
+    )
+  ;
+    (RLen - BLen > Max ->
+      FinalMove = X
+    ;
+      FinalMove = SuggestedMove
+    )
+  ).
+
+land_grab_move_helper([X|Xs], Max, SuggestedMove, Move, State, Player) :-
+  move_and_crank(X, State, [NewBlues, NewReds], Player),
+  % Check the length of the opposing players alive list, if smaller than min, return as move
+  length(NewBlues, BLen),
+  length(NewReds, RLen),
+  (Player == 'b' ->
+    (BLen - RLen > Max ->
+      NewMax is BLen - RLen,
+      NewSuggestedMove = X
+    ;
+      NewMax = Max,
+      NewSuggestedMove = SuggestedMove
+    )
+  ;
+    (RLen - BLen > Max ->
+      NewMax is RLen - BLen,
+      NewSuggestedMove = X
+    ;
+      NewMax = Max,
+      NewSuggestedMove = SuggestedMove
+    )
+  ),
+  land_grab_move_helper(Xs, NewMax, NewSuggestedMove, Move, State, Player).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% minimax strategy               %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+minimax('b', [AliveBlues, AliveReds], [NewAliveBlues, AliveReds], Move) :-
+  minimax_move(AliveBlues, AliveReds, Move, 'b'),
+  alter_board(Move, AliveBlues, NewAliveBlues).
+
+minimax('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
+  minimax_move(AliveReds, AliveBlues, Move, 'r'),
+  alter_board(Move, AliveReds, NewAliveReds).
+
+minimax_move(Alive, OtherPlayerAlive, Move, Player) :-
+
+  % Find all the possible moves given a player colour and a current board state
+  findall([A,B,MA,MB],(member([A,B], Alive),
+                       neighbour_position(A,B,[MA,MB]),
+                       \+member([MA,MB],Alive),
+                       \+member([MA,MB],OtherPlayerAlive)),
+          [P1|PossMoves]),
+
+  (Player ==  'b' ->
+   State = [Alive, OtherPlayerAlive]
+  ;
+   State = [OtherPlayerAlive, Alive]
+  ),
+  % Given a list of possible moves, run move and crank for each, return the lowest
+  minimax_move_helper([P1|PossMoves], 0, P1, Move, State, Player).
+
+
+
+
+
+
+% Given a list of moves (of the enemy), 
+% we minimise our utility because 
+% we know they'll make the worst move for us
+
+get_enemy_move([M1], Min, State, Player, FinalMin) :-
+  % Make this move and run conways crank to analyse the resulting state
+  move_and_crank(M1, State, [NewBlues, NewReds], other_player(Player)),
+  % Check the length of the opposing players alive list, if smaller than min, return as move
+  length(NewBlues, BLen),
+  length(NewReds, RLen),
+  % The enemy wants to minimise the utility function for the current player
+  (Player == 'b' ->
+    (BLen - RLen < Min ->
+      FinalMin = BLen - RLen
+    ;
+      FinalMin = Min
+    )
+  ;
+    (RLen - BLen < Min ->
+      FinalMin = RLen - BLen
+    ;
+      
+      FinalMin = Min
+    )
+  ).
+
+get_enemy_move([M1|Moves], Min, State, Player, FinalMin) :-
+  move_and_crank(M1, State, [NewBlues, NewReds], other_player(Player)),
+  length(NewBlues, BLen),
+  length(NewReds, RLen),
+  % You want to minimise utility for the current player
+  (Player == 'b' ->
+    (BLen - RLen < Min ->
+      NewMin is BLen - RLen
+    ;
+      NewMin = Min
+    )
+  ;
+    (RLen - BLen < Min ->
+      NewMin is RLen - BLen
+    ;
+      NewMin = Min
+    )
+  ),
+  get_enemy_move(Moves, NewMin, State, Player, FinalMin).
+
+
+
+
+minimax_move_helper([X], Max, SuggestedMove, FinalMove, State, Player) :-
+  % Make this move and run conways crank to analyse the resulting state
+  move_and_crank(X, State, [NewBlues, NewReds], Player),
+  
+  % We now get the worst enemy move resulting from this move and crank
+  
+  % First compute the enemies possible moveset
+  (Player == 'b' ->
+     Alive = NewReds,
+     OtherPlayerAlive = NewBlues
+   ;
+     Alive = NewBlues,
+     OtherPlayerAlive = NewReds
+  ),
+
+  findall([A,B,MA,MB],(member([A,B], Alive),
+                       neighbour_position(A,B,[MA,MB]),
+                       \+member([MA,MB],Alive),
+                       \+member([MA,MB],OtherPlayerAlive)),
+          [P1|EnemyPossMoves]),
+
+
+  % Then give this set to get_enemy_move
+  get_enemy_move(EnemyPossMoves, 65, P1, [NewBlues, NewReds], Player, EnemyMin),
+  % We now have the Enemy Move to be made given we have made move X
+  % We now compare the returned EnemyMin with our current Max
+  % If enemyMin is larger, we want to choose move X because it 
+  % gives us a higher lowest possible outcome
+  % Otherwise, ignore it and keep suggested move from before
+  (EnemyMin > Max ->
+      FinalMove = X
+    ;
+      FinalMove = SuggestedMove
+  ).
+
+minimax_move_helper([X|Xs], Max, SuggestedMove, Move, State, Player) :-
+  % Make this move and run conways crank to analyse the resulting state
+  move_and_crank(X, State, [NewBlues, NewReds], Player),
+  
+  % We now get the worst enemy move resulting from this move and crank
+  % First compute the enemies possible moveset
+  (Player == 'b' ->
+     Alive = NewReds,
+     OtherPlayerAlive = NewBlues
+   ;
+     Alive = NewBlues,
+     OtherPlayerAlive = NewReds
+  ),
+
+  findall([A,B,MA,MB],(member([A,B], Alive),
+                       neighbour_position(A,B,[MA,MB]),
+                       \+member([MA,MB],Alive),
+                       \+member([MA,MB],OtherPlayerAlive)),
+          [P1|EnemyPossMoves]),
+
+
+  % Then give this set to get_enemy_move
+  get_enemy_move(EnemyPossMoves, 65, P1, [NewBlues, NewReds], Player, EnemyMin),
+  % We now have the Enemy Move to be made given we have made move X
+  % We now compare the returned EnemyMin with our current Max
+  % If enemyMin is larger, we want to choose move X because it 
+  % gives us a higher lowest possible outcome
+  % Otherwise, ignore it and keep suggestedmove from before
+  (EnemyMin > Max ->
+      NewSuggestedMove = X,
+      NewMax = EnemyMin
+    ;
+      NewSuggestedMove = SuggestedMove,
+      NewMax = Max
+  ),
+  minimax_move_helper(Xs, NewMax, NewSuggestedMove, Move, State, Player).
+
+
+
