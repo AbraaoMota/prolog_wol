@@ -42,10 +42,18 @@ test_strategy_helper(1, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Hi
 
   AverageMoves is FinTotalMoves / InitN,
   AverageTime is FinGameTime / InitN,
-  format("Highest: ~w\nLowest: ~w\nAverageMoves: ~w\nBlueWins: ~w\nRedWins: ~w\nDraws: ~w\nAverageTimePerGame: ~w", [FinHighest, FinLowest, AverageMoves, FinBlueWins, FinRedWins, Draws, AverageTime]).
+  
+  format("\n\nNumber of wins for player 1 (blue): ~w\n", [FinBlueWins]),
+  format("Number of wins for player 2 (red): ~w\n", [FinRedWins]),
+  format("Number of Draws: ~w\n", [Draws]),
+  format("Longest non-exhaustive game: ~w\n", [FinHighest]),
+  format("Quickest game: ~w\n", [FinLowest]),
+  format("Average Moves per game: ~w\n", [AverageMoves]),
+  format("AverageTime per game: ~w\n\n", [AverageTime]).
 
 
 test_strategy_helper(N, InitN, Strat1, Strat2, TotalMoves, BlueWins, RedWins, Highest, Lowest, TimeInGame) :-
+  
   statistics(walltime, _),
   play(quiet, Strat1, Strat2, NumMoves, WinningPlayer),
   statistics(walltime, [_, Y]),
@@ -363,12 +371,13 @@ minimax_move(Alive, OtherPlayerAlive, Move, Player) :-
 
 % Given a list of moves (of the enemy), 
 % we minimise our utility because 
-% we know they'll make the worst move for us
+% we assume they are smart and thus 
+% they'll make the worst move for us (based on 
+% our own heuristic)
 
 get_enemy_move([M1], Min, State, Player, FinalMin) :-
   % Make this move and run conways crank to analyse the resulting state
   move_and_crank(M1, State, [NewBlues, NewReds], other_player(Player)),
-  % Check the length of the opposing players alive list, if smaller than min, return as move
   length(NewBlues, BLen),
   length(NewReds, RLen),
   % The enemy wants to minimise the utility function for the current player
@@ -413,27 +422,21 @@ get_enemy_move([M1|Moves], Min, State, Player, FinalMin) :-
 minimax_move_helper([X], Max, SuggestedMove, FinalMove, State, Player) :-
   % Make this move and run conways crank to analyse the resulting state
   move_and_crank(X, State, [NewBlues, NewReds], Player),
-  
-  % We now get the worst enemy move resulting from this move and crank
-  
-  % First compute the enemies possible moveset
+  % First compute the enemies possible moveset under the new state
   (Player == 'b' ->
-     Alive = NewReds,
-     OtherPlayerAlive = NewBlues
-   ;
      Alive = NewBlues,
      OtherPlayerAlive = NewReds
+   ;
+     Alive = NewReds,
+     OtherPlayerAlive = NewBlues
   ),
-
   findall([A,B,MA,MB],(member([A,B], Alive),
                        neighbour_position(A,B,[MA,MB]),
                        \+member([MA,MB],Alive),
                        \+member([MA,MB],OtherPlayerAlive)),
-          [P1|EnemyPossMoves]),
-
-
+          EnemyPossMoves),
   % Then give this set to get_enemy_move
-  get_enemy_move(EnemyPossMoves, 65, P1, [NewBlues, NewReds], Player, EnemyMin),
+  get_enemy_move(EnemyPossMoves, 65, [NewBlues, NewReds], Player, EnemyMin),
   % We now have the Enemy Move to be made given we have made move X
   % We now compare the returned EnemyMin with our current Max
   % If enemyMin is larger, we want to choose move X because it 
@@ -452,22 +455,22 @@ minimax_move_helper([X|Xs], Max, SuggestedMove, Move, State, Player) :-
   % We now get the worst enemy move resulting from this move and crank
   % First compute the enemies possible moveset
   (Player == 'b' ->
-     Alive = NewReds,
-     OtherPlayerAlive = NewBlues
-   ;
      Alive = NewBlues,
      OtherPlayerAlive = NewReds
+   ;
+     Alive = NewReds,
+     OtherPlayerAlive = NewBlues
   ),
 
   findall([A,B,MA,MB],(member([A,B], Alive),
                        neighbour_position(A,B,[MA,MB]),
                        \+member([MA,MB],Alive),
                        \+member([MA,MB],OtherPlayerAlive)),
-          [P1|EnemyPossMoves]),
+          EnemyPossMoves),
 
 
   % Then give this set to get_enemy_move
-  get_enemy_move(EnemyPossMoves, 65, P1, [NewBlues, NewReds], Player, EnemyMin),
+  get_enemy_move(EnemyPossMoves, 65,  [NewBlues, NewReds], Player, EnemyMin),
   % We now have the Enemy Move to be made given we have made move X
   % We now compare the returned EnemyMin with our current Max
   % If enemyMin is larger, we want to choose move X because it 
