@@ -128,8 +128,8 @@ move_and_crank(Move, [AliveBlues, AliveReds], [NewAliveBlues, NewAliveReds], Pla
 
 
 % Returns the other player given a player
-other_player('b') :- 'r'.
-other_player('r') :- 'b'.
+other_player('b', 'r').
+other_player('r', 'b').
 
 
 % Find all possible moves for a player with a corresponding set of Alive pieces. Requires
@@ -393,17 +393,17 @@ minimax('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
 minimax_move(Alive, OtherPlayerAlive, Move, Player) :-
 
   % Find all the possible moves given a player colour and a current board state
-  find_poss_move(Alive, OtherPlayerAlive, Moves, P1),
+  find_poss_move(Alive, OtherPlayerAlive, Moves, M1),
 
   (Player ==  'b' ->
    State = [Alive, OtherPlayerAlive]
   ;
    State = [OtherPlayerAlive, Alive]
   ),
+
+
   % Given a list of possible moves, run move and crank for each, return the lowest
-  minimax_move_helper(Moves, 0, P1, Move, State, Player).
-
-
+  minimax_move_helper(Moves, 0, State, Player, M1, Move).
 
 % Given a list of moves (of the enemy), 
 % we minimise our utility because 
@@ -411,39 +411,45 @@ minimax_move(Alive, OtherPlayerAlive, Move, Player) :-
 % they'll make the worst move for us (based on 
 % our own heuristic)
 
-get_enemy_min([M1], Min, State, Player, FinalMin) :-
+
+
+get_enemy_min([], _, _, Min, Min). 
+
+
+/*
+get_enemy_min([M1], State, Player, Min, FinalMin) :-
   
-  % Make this move and run conways crank to analyse the resulting state
-  move_and_crank(M1, State, [NewBlues, NewReds], other_player(Player)),
+  other_player(Player, Opponent),
+  move_and_crank(M1, State, [NewBlues, NewReds], Opponent),
   length(NewBlues, BLen),
   length(NewReds, RLen),
-
-  % The enemy wants to minimise the utility function for the current player
+  
   (Player == 'b' ->
     (BLen - RLen < Min ->
-      FinalMin = BLen - RLen
+      FinalMin is BLen - RLen
     ;
       FinalMin = Min
     )
   ;
     (RLen - BLen < Min ->
-      FinalMin = RLen - BLen
-    ;  
+      FinalMin is RLen - BLen
+    ;
       FinalMin = Min
     )
   ).
+*/
 
-get_enemy_min([M1|Moves], Min, State, Player, FinalMin) :-
-
-  move_and_crank(M1, State, [NewBlues, NewReds], other_player(Player)),
+get_enemy_min([M1|Moves], State, Player, Min, FinalMin) :-
+  other_player(Player, Opponent),
+  move_and_crank(M1, State, [NewBlues, NewReds], Opponent),
   length(NewBlues, BLen),
   length(NewReds, RLen),
-
-  % You want to minimise utility for the current player
+ 
+  %format("Red: ~w, Blue: ~w, Min: ~w\n", [RLen, BLen, Min]), 
   (Player == 'b' ->
     (BLen - RLen < Min ->
-      NewMin is BLen - RLen
-    ;
+      NewMin is BLen - RLen           
+    ; 
       NewMin = Min
     )
   ;
@@ -453,12 +459,20 @@ get_enemy_min([M1|Moves], Min, State, Player, FinalMin) :-
       NewMin = Min
     )
   ),
-  get_enemy_min(Moves, NewMin, State, Player, FinalMin).
+  format("newMin is: ~w, min is: ~w\n", [NewMin, Min]),
+  get_enemy_min(Moves, State, Player, NewMin, FinalMin).
 
-minimax_move_helper([X], Max, SuggestedMove, FinalMove, State, Player) :-
-  % Make this move and run conways crank to analyse the resulting state
-  move_and_crank(X, State, [NewBlues, NewReds], Player),
-  % First compute the enemies possible moveset under the new state
+
+
+
+/*
+
+minimax_move_helper([M1], Max, State, Player, SuggestedMove, FinalMove) :-
+ 
+  move_and_crank(M1, State, [NewBlues, NewReds], Player),
+  %length(NewBlues, BLen),
+  %length(NewReds, RLen),
+
   (Player == 'r' ->
     Alive = NewBlues,
     OtherPlayerAlive = NewReds
@@ -467,27 +481,23 @@ minimax_move_helper([X], Max, SuggestedMove, FinalMove, State, Player) :-
     OtherPlayerAlive = NewBlues
   ),
   
-  find_poss_move(Alive, OtherPlayerAlive, EnemyPossMoves, _),
-  
-  % Then give this set to get_enemy_move
-  get_enemy_min(EnemyPossMoves, 65, [NewBlues, NewReds], Player, EnemyMin),
-  % We now have the Enemy Move to be made given we have made move X
-  % We now compare the returned EnemyMin with our current Max
-  % If enemyMin is larger, we want to choose move X because it 
-  % gives us a higher lowest possible outcome
-  % Otherwise, ignore it and keep suggested move from before
-  (EnemyMin > Max ->
-    FinalMove = X
+  find_poss_move(Alive, OtherPlayerAlive, Moves, _),
+
+  get_enemy_min(Moves, [NewBlues, NewReds], Player, Max, Min),
+
+  (Min > Max ->
+    FinalMove = M1
   ;
     FinalMove = SuggestedMove
-  ).
+).
+*/
 
-minimax_move_helper([X|Xs], Max, SuggestedMove, Move, State, Player) :-
-  % Make this move and run conways crank to analyse the resulting state
-  move_and_crank(X, State, [NewBlues, NewReds], Player),
-  
-  % We now get the worst enemy move resulting from this move and crank
-  % First compute the enemies possible moveset
+minimax_move_helper([M1|RemMoves], Max, State, Player, SuggestedMove, FinalMove) :-
+
+  move_and_crank(M1, State, [NewBlues, NewReds], Player),
+  %length(NewBlues, BLen),
+  %length(NewReds, RLen),
+
   (Player == 'r' ->
     Alive = NewBlues,
     OtherPlayerAlive = NewReds
@@ -495,25 +505,21 @@ minimax_move_helper([X|Xs], Max, SuggestedMove, Move, State, Player) :-
     Alive = NewReds,
     OtherPlayerAlive = NewBlues
   ),
-
-  find_poss_move(Alive, OtherPlayerAlive, EnemyPossMoves, _),
   
+  find_poss_move(Alive, OtherPlayerAlive, Moves, _),
+  %format("The size of the opponents possible moves given P1 makes move ~w is: ~w\n", [M1, M]),
 
-  % Then give this set to get_enemy_move
-  get_enemy_min(EnemyPossMoves, 65, [NewBlues, NewReds], Player, EnemyMin),
-  % We now have the Enemy Move to be made given we have made move X
-  % We now compare the returned EnemyMin with our current Max
-  % If enemyMin is larger, we want to choose move X because it 
-  % gives us a higher lowest possible outcome
-  % Otherwise, ignore it and keep suggestedmove from before
-  (EnemyMin > Max ->
-    NewSuggestedMove = X,
-    NewMax = EnemyMin
+  get_enemy_min(Moves, [NewBlues, NewReds], Player, 65, Min),
+
+  (Min > Max ->
+    NewSuggestedMove = M1,
+    NewMax = Min
   ;
     NewSuggestedMove = SuggestedMove,
     NewMax = Max
   ),
-  minimax_move_helper(Xs, NewMax, NewSuggestedMove, Move, State, Player).
 
+  format("\nnewmax is: ~w\n", [NewMax]),
+  minimax_move_helper(RemMoves, NewMax, State, Player, NewSuggestedMove, FinalMove).
 
 
