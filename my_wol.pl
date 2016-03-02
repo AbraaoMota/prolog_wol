@@ -136,13 +136,15 @@ other_player('r', 'b').
 % also the set of OtherPlayerAlive pieces for the other player. Returns also the 
 % FirstMove of the Moves set, which is useful in being the first suggestedMove in
 % strategies later
-find_poss_move(Alive, OtherPlayerAlive, Moves, FirstMove) :-
- findall([A,B,MA,MB],(member([A,B], Alive),
+find_poss_move(Alive, OtherPlayerAlive, Moves) :-
+  %format("+3.5", []),
+  findall([A,B,MA,MB],(member([A,B], Alive),
                        neighbour_position(A,B,[MA,MB]),
                        \+member([MA,MB],Alive),
                        \+member([MA,MB],OtherPlayerAlive)),
-          [FirstMove|PossMoves]),
-          Moves = [FirstMove|PossMoves].
+          Moves).
+          %Moves = [FirstMove|PossMoves].%,
+          %format("+3", []).
 
 
 
@@ -161,7 +163,8 @@ bloodlust('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
 bloodlust_move(Alive, OtherPlayerAlive, Move, Player) :-
 
   % Find all the possible moves given a player colour and a current board state
-  find_poss_move(Alive, OtherPlayerAlive, Moves, P1),
+  find_poss_move(Alive, OtherPlayerAlive, Moves),
+  Moves = [P1|_],
 
   (Player ==  'b' ->
     State = [Alive, OtherPlayerAlive]
@@ -238,7 +241,8 @@ self_preservation('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move
 self_preservation_move(Alive, OtherPlayerAlive, Move, Player) :-
 
   % Find all the possible moves given a player colour and a current board state
-  find_poss_move(Alive, OtherPlayerAlive, Moves, P1),
+  find_poss_move(Alive, OtherPlayerAlive, Moves),
+  Moves = [P1|_],
 
   (Player ==  'b' ->
     State = [Alive, OtherPlayerAlive]
@@ -316,7 +320,8 @@ land_grab('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
 land_grab_move(Alive, OtherPlayerAlive, Move, Player) :-
 
   % Find all the possible moves given a player colour and a current board state
-  find_poss_move(Alive, OtherPlayerAlive, Moves, P1),
+  find_poss_move(Alive, OtherPlayerAlive, Moves),
+  Moves = [P1|_],
   (Player ==  'b' ->
     State = [Alive, OtherPlayerAlive]
   ;
@@ -393,7 +398,8 @@ minimax('r', [AliveBlues, AliveReds], [AliveBlues, NewAliveReds], Move) :-
 minimax_move(Alive, OtherPlayerAlive, Move, Player) :-
 
   % Find all the possible moves given a player colour and a current board state
-  find_poss_move(Alive, OtherPlayerAlive, Moves, M1),
+  find_poss_move(Alive, OtherPlayerAlive, Moves),
+  Moves = [M1|_],
 
   (Player ==  'b' ->
    State = [Alive, OtherPlayerAlive]
@@ -401,9 +407,13 @@ minimax_move(Alive, OtherPlayerAlive, Move, Player) :-
    State = [OtherPlayerAlive, Alive]
   ),
 
+  %length(Moves, N),
+  %format("Blue has ~w moves to do\n", [N]),
+
 
   % Given a list of possible moves, run move and crank for each, return the lowest
   minimax_move_helper(Moves, 0, State, Player, M1, Move).
+  %format("Final Move was ~w", [Move]).
 
 % Given a list of moves (of the enemy), 
 % we minimise our utility because 
@@ -413,7 +423,8 @@ minimax_move(Alive, OtherPlayerAlive, Move, Player) :-
 
 
 
-get_enemy_min([], _, _, Min, Min). 
+get_enemy_min([], _, _, Min, NewMin) :-
+  NewMin = Min. 
 
 
 /*
@@ -459,7 +470,7 @@ get_enemy_min([M1|Moves], State, Player, Min, FinalMin) :-
       NewMin = Min
     )
   ),
-  format("newMin is: ~w, min is: ~w\n", [NewMin, Min]),
+  %format("newMin is: ~w, min is: ~w\n", [NewMin, Min]),
   get_enemy_min(Moves, State, Player, NewMin, FinalMin).
 
 
@@ -492,6 +503,12 @@ minimax_move_helper([M1], Max, State, Player, SuggestedMove, FinalMove) :-
 ).
 */
 
+
+minimax_move_helper([], _, _, _, SuggestedMove, FinalMove) :-
+  FinalMove = SuggestedMove.
+  %format("GOT HEREEE\n", []),
+  %write(FinalMove).
+
 minimax_move_helper([M1|RemMoves], Max, State, Player, SuggestedMove, FinalMove) :-
 
   move_and_crank(M1, State, [NewBlues, NewReds], Player),
@@ -505,9 +522,13 @@ minimax_move_helper([M1|RemMoves], Max, State, Player, SuggestedMove, FinalMove)
     Alive = NewReds,
     OtherPlayerAlive = NewBlues
   ),
-  
-  find_poss_move(Alive, OtherPlayerAlive, Moves, _),
+ 
+  %format("+1", []),
+  find_poss_move(Alive, OtherPlayerAlive, Moves),
+  %format("+2\n", []),
   %format("The size of the opponents possible moves given P1 makes move ~w is: ~w\n", [M1, M]),
+  %length(Moves, N),
+  %format("opponent has ~w moves\n", [N]),
 
   get_enemy_min(Moves, [NewBlues, NewReds], Player, 65, Min),
 
@@ -519,7 +540,9 @@ minimax_move_helper([M1|RemMoves], Max, State, Player, SuggestedMove, FinalMove)
     NewMax = Max
   ),
 
-  format("\nnewmax is: ~w\n", [NewMax]),
+  
+
+  % format("\nnewmax is: ~w\n", [NewMax]),
   minimax_move_helper(RemMoves, NewMax, State, Player, NewSuggestedMove, FinalMove).
 
 
